@@ -14,9 +14,18 @@ from pathlib import Path
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 CONTENT_TYPES = {
-    "sbom": "/repos/{repo}/dependency-graph/sbom",
-    "dependabot": "/repos/{repo}/dependabot/alerts?per_page=100&state=open",
-    "codeql": "/repos/{repo}/code-scanning/alerts?per_page=100&state=open",
+    "sbom": {
+        "endpoint": "/repos/{repo}/dependency-graph/sbom",
+        "paginate": False,
+    },
+    "dependabot": {
+        "endpoint": "/repos/{repo}/dependabot/alerts?per_page=100&state=open",
+        "paginate": True,
+    },
+    "codeql": {
+        "endpoint": "/repos/{repo}/code-scanning/alerts?per_page=100&state=open",
+        "paginate": True,
+    },
 }
 
 
@@ -55,36 +64,44 @@ def load_repos(path: str) -> list[str]:
     return repos
 
 
-def paginate_api(endpoint: str) -> list:
-    """Fetch all pages from a paginated GitHub API endpoint."""
-    results = []
-    page = 1
+def fetch_api(endpoint: str, paginate: bool = False) -> list | dict:
+    """Fetch from GitHub API, optionally with automatic pagination."""
+    cmd = ["gh", "api", endpoint, "--method", "GET"]
 
-    while True:
-        separator = "&" if "?" in endpoint else "?"
-        paged = f"{endpoint}{separator}page={page}"
+    if paginate:
+        cmd.append("--paginate")
 
-        cmd = ["gh", "api", paged, "--method", "GET"]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
 
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip())
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip())
 
-        data = json.loads(proc.stdout)
+    output = proc.stdout.strip()
 
-        # SBOM returns an object, not a list — no pagination needed
-        if isinstance(data, dict):
-            return data
+    if not output:
+        return []
 
-        if not data:
-            break
-
-        results.extend(data)
-        if len(data) < 100:
-            break
-        page += 1
-
-    return results
+    # --paginate can return multiple JSON arrays concatenated
+    # e.g. [1,2][3,4] — need to merge them
+    if paginate:
+        results = []
+        decoder = json.JSONDecoder()
+        pos = 0
+        while pos < len(output):
+            # Skip whitespace
+            while pos < len(output) and output[pos] in ' \t\n\r':
+                pos += 1
+            if pos >= len(output):
+                break
+            obj, end = decoder.raw_decode(output, pos)
+            if isinstance(obj, list):
+                results.extend(obj)
+            else:
+                results.append(obj)
+            pos = end
+        return results
+    else:
+        return json.loads(output)
 
 
 def safe_filename(repo: str) -> str:
@@ -94,7 +111,8 @@ def safe_filename(repo: str) -> str:
 
 def download(repo: str, content_type: str, output_dir: Path, dry_run: bool = False) -> Result:
     """Download one content type for one repo."""
-    endpoint = CONTENT_TYPES[content_type].format(repo=repo)
+    config = CONTENT_TYPES[content_type]
+    endpoint = config["endpoint"].format(repo=repo)
     filename = f"{safe_filename(repo)}_{content_type}_{TIMESTAMP}.json"
     filepath = output_dir / filename
 
@@ -102,7 +120,7 @@ def download(repo: str, content_type: str, output_dir: Path, dry_run: bool = Fal
         return Result(repo, content_type, True, f"DRY RUN: gh api {endpoint}", str(filepath))
 
     try:
-        data = paginate_api(endpoint)
+        data = fetch_api(endpoint, paginate=config["paginate"])
 
         # Write the file
         filepath.write_text(json.dumps(data, indent=2))
@@ -119,9 +137,10 @@ def download(repo: str, content_type: str, output_dir: Path, dry_run: bool = Fal
 
     except RuntimeError as e:
         error = str(e)
-        # Common: CodeQL not enabled, Dependabot not enabled
         if "404" in error or "not enabled" in error.lower():
-            return Result(repo, content_type, False, f"⚠️  Not enabled or no access")
+            return Result(repo, content_type, False, "⚠️  Not enabled or no access")
+        if "403" in error:
+            return Result(repo, content_type, False, f"⚠️  No permission (GHAS not enabled?)")
         return Result(repo, content_type, False, f"❌ {error}")
     except Exception as e:
         return Result(repo, content_type, False, f"❌ {e}")

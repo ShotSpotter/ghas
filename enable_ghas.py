@@ -17,6 +17,12 @@ FEATURES = {
         "body": {"security_and_analysis": {"advanced_security": {"status": "enabled"}}},
         "description": "GHAS license (required for CodeQL & secret scanning)",
     },
+    "codeql": {
+        "method": "PATCH",
+        "endpoint": "/repos/{repo}/code-scanning/default-setup",
+        "body": {"state": "configured", "query_suite": "default"},
+        "description": "CodeQL code scanning (default setup)",
+    },
     "dependabot_alerts": {
         "method": "PUT",
         "endpoint": "/repos/{repo}/vulnerability-alerts",
@@ -46,11 +52,14 @@ FEATURES = {
 # Order matters — advanced_security must be first
 ENABLE_ORDER = [
     "advanced_security",
+    "codeql",
     "dependabot_alerts",
     "dependabot_updates",
     "secret_scanning",
     "secret_push_protection",
 ]
+
+GHAS_DEPENDENT = {"codeql", "secret_scanning", "secret_push_protection"}
 
 
 @dataclass
@@ -92,8 +101,17 @@ def check_current_status(repo: str) -> dict:
     data = json.loads(proc.stdout)
     sa = data.get("security_and_analysis", {})
 
+    # Check CodeQL status separately
+    codeql_status = False
+    cql_cmd = ["gh", "api", f"/repos/{repo}/code-scanning/default-setup", "--method", "GET"]
+    cql_proc = subprocess.run(cql_cmd, capture_output=True, text=True)
+    if cql_proc.returncode == 0:
+        cql_data = json.loads(cql_proc.stdout)
+        codeql_status = cql_data.get("state") == "configured"
+
     return {
         "advanced_security": sa.get("advanced_security", {}).get("status") == "enabled",
+        "codeql": codeql_status,
         "secret_scanning": sa.get("secret_scanning", {}).get("status") == "enabled",
         "secret_push_protection": sa.get("secret_scanning_push_protection", {}).get("status") == "enabled",
         "dependabot_alerts": sa.get("dependabot_security_updates", {}).get("status") == "enabled",
@@ -130,6 +148,10 @@ def enable_feature(repo: str, feature: str, dry_run: bool = False) -> Result:
         if "already enabled" in error.lower():
             return Result(repo, feature, True, "✅ Already enabled")
 
+        # CodeQL: "configured" state already set
+        if "already configured" in error.lower():
+            return Result(repo, feature, True, "✅ Already configured")
+
         return Result(repo, feature, False, f"❌ {error}")
 
     except Exception as e:
@@ -139,17 +161,19 @@ def enable_feature(repo: str, feature: str, dry_run: bool = False) -> Result:
 def enable_repo(repo: str, features: list[str], dry_run: bool = False) -> list[Result]:
     """Enable features on a repo in order. Stop if advanced_security fails."""
     results = []
+    ghas_failed = False
 
     for feature in features:
+        # Skip dependent features if GHAS failed
+        if ghas_failed and feature in GHAS_DEPENDENT:
+            results.append(Result(repo, feature, False, "⏭️  Skipped (GHAS not enabled)"))
+            continue
+
         result = enable_feature(repo, feature, dry_run)
         results.append(result)
 
-        # If GHAS license fails, skip the rest that depend on it
         if feature == "advanced_security" and not result.success:
-            for remaining in features[features.index(feature) + 1:]:
-                if remaining in ("secret_scanning", "secret_push_protection"):
-                    results.append(Result(repo, remaining, False, "⏭️  Skipped (GHAS not enabled)"))
-            break
+            ghas_failed = True
 
     return results
 
@@ -189,16 +213,17 @@ def main():
     # --- Check mode ---
     if args.check:
         print(f"\n🔍 Checking GHAS status for {len(repos)} repos...\n")
-        print(f"  {'Repo':42s} {'GHAS':8s} {'Secrets':10s} {'Push Prot':10s}")
-        print(f"  {'─' * 42} {'─' * 8} {'─' * 10} {'─' * 10}")
+        print(f"  {'Repo':42s} {'GHAS':8s} {'CodeQL':8s} {'Secrets':10s} {'Push Prot':10s}")
+        print(f"  {'─' * 42} {'─' * 8} {'─' * 8} {'─' * 10} {'─' * 10}")
 
         for repo in repos:
             status = check_current_status(repo)
             if status:
                 ghas = "✅" if status.get("advanced_security") else "❌"
+                codeql = "✅" if status.get("codeql") else "❌"
                 secrets = "✅" if status.get("secret_scanning") else "❌"
                 push = "✅" if status.get("secret_push_protection") else "❌"
-                print(f"  {repo:42s} {ghas:8s} {secrets:10s} {push:10s}")
+                print(f"  {repo:42s} {ghas:8s} {codeql:8s} {secrets:10s} {push:10s}")
             else:
                 print(f"  {repo:42s} ⚠️  Could not check")
         return

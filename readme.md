@@ -41,6 +41,10 @@ python enable_ghas.py --features dependabot_alerts dependabot_updates
 
 ## Download Findings
 
+### Auth
+ `gh auth refresh -h github.com -s admin:repo_hook -s security_events`
+
+
 ```
 # Preview everything
 python download_findings.py --dry-run -v
