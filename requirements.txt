@@ -1,4 +1,6 @@
-# No external dependencies required.
-# All modules used are Python standard library:
+# Dependencies for HTML report generation
+Jinja2>=3.0.0
+
+# For other scripts, mostly Python standard library:
 #   json, subprocess, sys, argparse,
 #   concurrent.futures, dataclasses, pathlib
