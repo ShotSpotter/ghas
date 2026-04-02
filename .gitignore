@@ -1,6 +1,9 @@
 # Ignore findings folder
 findings/
 
+# Ignore HTML reports
+reports/*.html
+
 # Python
 __pycache__/
 *.py[cod]

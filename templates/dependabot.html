@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependabot Security Alerts - {{ repo_name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1, h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 10px;
+        }
+        
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #f39c12;
+        }
+        
+        .disclaimer h3 {
+            color: #8b4513;
+            margin-top: 0;
+            border: none;
+            padding: 0;
+        }
+        
+        .disclaimer ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .disclaimer li {
+            margin: 5px 0;
+        }
+        
+        .header-info {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .critical { color: #8b0000; }
+        .high { color: #e74c3c; }
+        .medium { color: #f39c12; }
+        .low { color: #f1c40f; }
+        .unknown { color: #95a5a6; }
+        
+        .severity-section {
+            margin: 30px 0;
+        }
+        
+        .alert-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 15px 0;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 5px solid #ddd;
+        }
+        
+        .alert-card.critical { border-left-color: #8b0000; }
+        .alert-card.high { border-left-color: #e74c3c; }
+        .alert-card.medium { border-left-color: #f39c12; }
+        .alert-card.low { border-left-color: #f1c40f; }
+        .alert-card.unknown { border-left-color: #95a5a6; }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .alert-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .alert-number {
+            background: #34495e;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .alert-meta {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+        
+        .alert-summary {
+            margin: 15px 0;
+            line-height: 1.5;
+        }
+        
+        .alert-links {
+            margin-top: 15px;
+        }
+        
+        .alert-link {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+        
+        .alert-link:hover {
+            background: #2980b9;
+        }
+        
+        .no-alerts {
+            text-align: center;
+            color: #27ae60;
+            font-size: 1.1em;
+            padding: 40px;
+            background: #d5f4e6;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 12px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }
+        
+        .repo-link {
+            color: #e74c3c;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .repo-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .alert-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .alert-number {
+                margin-top: 10px;
+            }
+            
+            .header-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Dependabot Security Alerts</h1>
+        <h2>Repository: <a href="https://github.com/{{ repo_name }}" class="repo-link" target="_blank">{{ repo_name }}</a></h2>
+        
+        <div class="disclaimer">
+            <h3>⚠️ Important Security Disclaimer</h3>
+            <p><strong>These are raw vulnerability findings that require careful interpretation:</strong></p>
+            <ul>
+                <li><strong>Defense in Depth:</strong> These alerts represent only one layer of security assessment. They should be evaluated alongside other security measures including infrastructure protections, network security controls, and runtime defenses.</li>
+                <li><strong>Infrastructure Mitigations:</strong> Many vulnerabilities may be mitigated by existing infrastructure controls such as WAFs, network segmentation, access controls, or containerization security policies.</li>
+                <li><strong>External Assessment Required:</strong> Perform comprehensive penetration testing and external vulnerability scans to validate actual exploitability in your environment.</li>
+                <li><strong>Context Matters:</strong> Not all reported vulnerabilities may be exploitable in your specific deployment configuration or usage patterns.</li>
+                <li><strong>Prioritization:</strong> Focus remediation efforts based on actual risk exposure, considering your threat model and compensating controls.</li>
+            </ul>
+        </div>
+        
+        <div class="header-info">
+            <div class="stat-box">
+                <div class="stat-number critical">{{ severity_groups.critical|length }}</div>
+                <div>Critical</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number high">{{ severity_groups.high|length }}</div>
+                <div>High</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number medium">{{ severity_groups.medium|length }}</div>
+                <div>Medium</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number low">{{ severity_groups.low|length }}</div>
+                <div>Low</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ total_alerts }}</div>
+                <div>Total Alerts</div>
+            </div>
+        </div>
+        
+        {% if total_alerts == 0 %}
+        <div class="no-alerts">
+            🎉 No open Dependabot security alerts found!<br>
+            This repository appears to have no known dependency vulnerabilities.
+        </div>
+        {% else %}
+        
+        {% for severity in ['critical', 'high', 'medium', 'low', 'unknown'] %}
+        {% set alerts = severity_groups[severity] %}
+        {% if alerts %}
+        <div class="severity-section">
+            <h2 class="{{ severity }}">{{ severity|title }} Severity ({{ alerts|length }} alerts)</h2>
+            
+            {% for alert in alerts %}
+            <div class="alert-card {{ severity }}">
+                <div class="alert-header">
+                    <h3 class="alert-title">{{ alert.package }}</h3>
+                    <span class="alert-number">#{{ alert.number }}</span>
+                </div>
+                
+                <div class="alert-meta">
+                    <strong>Version:</strong> {{ alert.version }} | 
+                    <strong>State:</strong> {{ alert.state|title }} |
+                    {% if alert.cve_id %}
+                    <strong>CVE:</strong> {{ alert.cve_id }} |
+                    {% endif %}
+                    {% if alert.published_at %}
+                    <strong>Published:</strong> {{ alert.published_at[:10] }}
+                    {% endif %}
+                </div>
+                
+                <div class="alert-summary">
+                    {{ alert.summary }}
+                </div>
+                
+                {% if alert.html_url %}
+                <div class="alert-links">
+                    <a href="{{ alert.html_url }}" class="alert-link" target="_blank">View on GitHub</a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+        
+        {% endif %}
+        
+        <div class="footer">
+            <p><strong>Report Generated:</strong> {{ generated_at }}</p>
+            <p>Dependabot automatically scans for security vulnerabilities in dependencies. Regular security assessments and penetration testing are recommended for comprehensive security validation.</p>
+        </div>
+    </div>
+</body>
+</html>

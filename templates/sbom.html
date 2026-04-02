@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBOM Report - {{ repo_name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1, h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .header-info {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .packages-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        .packages-table th,
+        .packages-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .packages-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .packages-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .license-badge {
+            display: inline-block;
+            background-color: #27ae60;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin: 2px;
+            font-weight: 500;
+        }
+        
+        .license-badge.not-specified {
+            background-color: #e74c3c;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 12px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }
+        
+        .repo-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .repo-link:hover {
+            text-decoration: underline;
+        }
+        
+        .search-box {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .packages-table {
+                font-size: 12px;
+            }
+            
+            .packages-table th,
+            .packages-table td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Software Bill of Materials (SBOM)</h1>
+        <h2>Repository: <a href="https://github.com/{{ repo_name }}" class="repo-link" target="_blank">{{ repo_name }}</a></h2>
+        
+        <div class="header-info">
+            <div class="stat-box">
+                <div class="stat-number">{{ total_packages }}</div>
+                <div>Total Packages</div>
+            </div>
+            <div class="stat-box">
+                <div style="font-size: 1.2em; font-weight: bold; color: #2c3e50;">{{ sbom_name }}</div>
+                <div>SBOM Name</div>
+            </div>
+        </div>
+        
+        <input type="text" class="search-box" id="packageSearch" placeholder="🔍 Search packages, suppliers, or licenses...">
+        
+        <h2>📋 Package Inventory with License Information</h2>
+        <p><strong>Note:</strong> License information is crucial for compliance. Packages marked as "Not specified" require manual license investigation.</p>
+        
+        <div style="overflow-x: auto;">
+            <table class="packages-table" id="packagesTable">
+                <thead>
+                    <tr>
+                        <th>Package Name</th>
+                        <th>Version</th>
+                        <th>Supplier</th>
+                        <th>📜 Licenses</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for package in packages %}
+                    <tr>
+                        <td><strong>{{ package.name }}</strong></td>
+                        <td>{{ package.version }}</td>
+                        <td>{{ package.supplier }}</td>
+                        <td>
+                            {% for license in package.licenses %}
+                                <span class="license-badge{% if license == 'Not specified' %} not-specified{% endif %}">
+                                    {{ license }}
+                                </span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="footer">
+            <p><strong>SBOM Generated:</strong> {{ creation_time }}</p>
+            <p><strong>Report Generated:</strong> {{ generated_at }}</p>
+            <p>This Software Bill of Materials (SBOM) provides a comprehensive inventory of software components and their associated licenses.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Search functionality
+        document.getElementById('packageSearch').addEventListener('keyup', function() {
+            const searchValue = this.value.toLowerCase();
+            const table = document.getElementById('packagesTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().includes(searchValue)) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                row.style.display = found ? '' : 'none';
+            }
+        });
+    </script>
+</body>
+</html>
